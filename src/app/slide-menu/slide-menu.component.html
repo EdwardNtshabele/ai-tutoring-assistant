@@ -1,0 +1,25 @@
+<!-- Hamburger Menu Button -->
+<button class="menu-btn" (click)="toggleMenu()">
+  <div class="hamburger">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</button>
+
+<!-- Side Navigation Menu -->
+<div class="side-nav" [class.open]="isOpen">
+  <div class="side-nav-header">
+    <h3>AI Tutoring Assistant</h3>
+  </div>
+  <ul class="side-nav-menu">
+    <li><a routerLink="/chat" routerLinkActive="active" (click)="closeMenu()">Home</a></li>
+    <li><a routerLink="/subjects" routerLinkActive="active" (click)="closeMenu()">Subjects</a></li>
+    <li><a routerLink="/quiz" routerLinkActive="active" (click)="closeMenu()">Quiz</a></li>
+    <li><a routerLink="/performance" routerLinkActive="active" (click)="closeMenu()">Performance</a></li>
+    <li class="logout"><a routerLink="/login" (click)="closeMenu()">Logout</a></li>
+  </ul>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" [class.show]="isOpen" (click)="closeMenu()"></div>

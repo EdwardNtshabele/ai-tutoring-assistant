@@ -1,0 +1,130 @@
+<!-- Hamburger Menu Button -->
+<button class="menu-btn" [class.hidden]="isMenuOpen" (click)="toggleMenu()">
+  <div class="hamburger">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</button>
+
+<!-- Side Navigation -->
+<div class="side-nav" [class.open]="isMenuOpen">
+  <div class="side-nav-header">
+    <h3>AI Tutoring Assistant</h3>
+  </div>
+  <ul class="side-nav-menu">
+    <li><a href="#" (click)="navigateTo('home'); $event.preventDefault()">Home</a></li>
+    <li><a href="#" (click)="navigateTo('subjects'); $event.preventDefault()">Subjects</a></li>
+    <li><a href="#" (click)="navigateTo('quiz'); $event.preventDefault()">Quiz</a></li>
+    <li><a href="#" (click)="navigateTo('performance'); $event.preventDefault()">Performance</a></li>
+    <li class="logout"><a href="#" (click)="navigateTo('login'); $event.preventDefault()">Logout</a></li>
+  </ul>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" [class.show]="isMenuOpen" (click)="closeMenu()"></div>
+
+<!-- Main Content -->
+<div class="main-content" [class.menu-open]="isMenuOpen">
+  <div class="quiz-container">
+
+    <h2 class="page-title">Quiz</h2>
+    <h4 class="page-subtitle">Select a Subtopic</h4>
+
+    <!-- Subtopics -->
+    <div class="subtopics-grid">
+      <div class="subtopic-card"
+           *ngFor="let topic of topics"
+           [class.selected]="selectedTopic === topic"
+           (click)="selectTopic(topic)">
+        <div class="card-content">
+          <h5>{{ topic }}</h5>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start Quiz -->
+    <button class="start-btn"
+            (click)="startQuiz()"
+            [disabled]="!selectedTopic || quizLoading">
+      {{ quizLoading ? 'Generating Quiz...' : 'Start Quiz' }}
+    </button>
+
+    <!-- ERROR MESSAGE DISPLAY - ADD THIS SECTION -->
+    <div *ngIf="errorMessage" class="error-message">
+      <strong>Error:</strong> {{ errorMessage }}
+      <button class="retry-btn" (click)="resetQuiz()">Try Again</button>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div *ngIf="quizLoading && !errorMessage" class="loading-indicator">
+      <div class="spinner"></div>
+      <p>Generating your quiz with AI...</p>
+    </div>
+
+    <!-- Quiz Section -->
+<!-- Quiz Section -->
+<div *ngIf="questions.length > 0 && !quizCompleted" class="quiz-section">
+  <h3 class="question-text">
+    Question {{ currentQuestionIndex + 1 }} of {{ questions.length }}:
+    {{ questions[currentQuestionIndex]?.question }}
+  </h3>
+
+  <div class="options-grid">
+    <div *ngFor="let opt of questions[currentQuestionIndex]?.options; let i = index"
+         class="option-card"
+         [class.selected]="selectedAnswers[currentQuestionIndex] === opt"
+         (click)="selectAnswer(currentQuestionIndex, opt)">
+      <p>{{ opt }}</p>
+    </div>
+  </div>
+
+  <div class="quiz-actions">
+    <button (click)="nextQuestion()"
+            [disabled]="currentQuestionIndex >= questions.length - 1">
+      Next Question
+    </button>
+    <button (click)="submitQuiz()"
+            [disabled]="!areAllQuestionsAnswered()">
+      Submit Quiz
+    </button>
+  </div>
+</div>
+
+    <!-- Results -->
+    <div *ngIf="quizCompleted" class="results-section">
+      <h3>Quiz Results</h3>
+      <p class="result-score">
+        Score: {{ quizResult?.score }} / {{ quizResult?.total }}
+      </p>
+      <p class="result-percentage"
+         [ngClass]="{
+           'score-high': quizResult?.percentage >= 70,
+           'score-medium': quizResult?.percentage >= 50 && quizResult?.percentage < 70,
+           'score-low': quizResult?.percentage < 50
+         }">
+        {{ quizResult?.percentage | number:'1.0-0' }}%
+      </p>
+      
+      <!-- Detailed Results -->
+      <div class="detailed-results" *ngIf="quizResult?.results">
+        <h4>Detailed Answers:</h4>
+        <div *ngFor="let result of quizResult.results; let i = index" 
+             class="result-item" 
+             [class.correct]="result.correct"
+             [class.incorrect]="!result.correct">
+          <p><strong>Q{{i+1}}:</strong> {{ result.question }}</p>
+          <p>Your answer: {{ result.selected_answer || 'Not answered' }}</p>
+          <p>Correct answer: {{ result.correct_answer }}</p>
+          <p *ngIf="result.explanation" class="explanation">
+            <em>{{ result.explanation }}</em>
+          </p>
+        </div>
+      </div>
+      
+      <button (click)="resetQuiz()">Try Again</button>
+    </div>
+
+  </div>
+  
+</div>

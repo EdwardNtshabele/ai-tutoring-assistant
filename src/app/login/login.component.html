@@ -1,0 +1,50 @@
+<div class="login-wrapper">
+  <div class="login-box">
+    <div class="login-header">
+      <div class="tn-logo">TN</div>
+      <h2>AI Tutoring Assistant</h2>
+      <p class="tagline">Learn Smarter·Ithute ka Bothihele</p>
+    </div>
+
+    <form #loginForm="ngForm">
+      <div class="input-field">
+        <label>Username</label>
+        <input 
+          type="text" 
+          placeholder="Username"
+          [(ngModel)]="username"
+          name="username">
+      </div>
+
+      <div class="input-field">
+        <label>Password</label>
+        <input 
+          type="password" 
+          placeholder="Password"
+          [(ngModel)]="password"
+          name="password">
+      </div>
+
+      <div class="row">
+        <label class="checkbox">
+          <input 
+            type="checkbox"
+            [(ngModel)]="rememberMe"
+            name="rememberMe"> Remember Me
+        </label>
+        <a href="#" class="forgot">Forgot Password?</a>
+      </div>
+
+      <button 
+        type="button" 
+        class="signin-btn" 
+        (click)="onSignIn()">
+        Sign In
+      </button>
+
+      <p class="signup">
+        Don't have an account? <a href="#">Sign Up</a>
+      </p>
+    </form>
+  </div>
+</div>

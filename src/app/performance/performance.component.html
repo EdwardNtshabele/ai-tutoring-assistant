@@ -1,0 +1,235 @@
+<!-- Hamburger -->
+<button class="menu-btn" [class.hidden]="isMenuOpen" (click)="toggleMenu()">
+  <div class="hamburger"><span></span><span></span><span></span></div>
+</button>
+
+<!-- Side Nav -->
+<div class="side-nav" [class.open]="isMenuOpen">
+  <div class="side-nav-header"><h3>AI Tutoring Assistant</h3></div>
+  <ul class="side-nav-menu">
+    <li><a href="#" (click)="navigateTo('home'); $event.preventDefault()">Home</a></li>
+    <li><a href="#" (click)="navigateTo('subjects'); $event.preventDefault()">Subjects</a></li>
+    <li><a href="#" (click)="navigateTo('quiz'); $event.preventDefault()">Quiz</a></li>
+    <li><a href="#" (click)="navigateTo('performance'); $event.preventDefault()">Performance</a></li>
+    <li class="logout"><a href="#" (click)="navigateTo('login'); $event.preventDefault()">Logout</a></li>
+  </ul>
+</div>
+<div class="overlay" [class.show]="isMenuOpen" (click)="closeMenu()"></div>
+
+<!-- Main -->
+<div class="main-content" [class.menu-open]="isMenuOpen">
+  <div class="perf-container">
+
+    <h2 class="page-title">Performance</h2>
+    <p class="page-subtitle">
+      {{ selectedSubject ? selectedSubject : 'All Subjects' }}
+    </p>
+
+    <!-- Subject Filter Pills -->
+    <div class="subject-pills" *ngIf="data.subjects && data.subjects.length > 0">
+      <button class="pill"
+              [class.active]="!selectedSubject"
+              (click)="clearFilter()">All</button>
+      <button class="pill"
+              *ngFor="let s of data.subjects"
+              [class.active]="selectedSubject === s"
+              (click)="switchSubject(s)">{{ s }}</button>
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="isLoading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading your performance data...</p>
+    </div>
+
+    <!-- Error -->
+    <div *ngIf="errorMessage && !isLoading" class="error-card">
+      {{ errorMessage }}
+      <button (click)="loadPerformance()">Retry</button>
+    </div>
+
+    <ng-container *ngIf="!isLoading && !errorMessage">
+
+      <!-- ── Stats Row ── -->
+      <div class="stats-row">
+
+        <div class="stat-card">
+          <div class="stat-value"
+               [ngClass]="getScoreClass(data.average_score)">
+            {{ data.average_score }}%
+          </div>
+          <div class="stat-label">Average Score</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-value">{{ data.total_quizzes }}</div>
+          <div class="stat-label">Quizzes Taken</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-value">{{ data.topics_attempted }}</div>
+          <div class="stat-label">Topics Explored</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-value">{{ data.subjects_attempted }}</div>
+          <div class="stat-label">Subjects</div>
+        </div>
+
+      </div>
+
+      <!-- ── Score Trend ── -->
+      <div class="card trend-card" *ngIf="data.score_trend && data.score_trend.length >= 2">
+        <h4>Recent Score Trend</h4>
+        <svg class="trend-svg" viewBox="0 0 200 60" preserveAspectRatio="none">
+          <!-- Grid lines -->
+          <line x1="10" y1="10" x2="190" y2="10" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
+          <line x1="10" y1="35" x2="190" y2="35" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
+          <!-- Trend path -->
+          <path [attr.d]="getTrendPoints(data.score_trend)"
+                fill="none"
+                stroke="#28a745"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"/>
+          <!-- Dots -->
+          <circle *ngFor="let t of data.score_trend; let i = index"
+                  [attr.cx]="10 + (i / (data.score_trend.length - 1)) * 180"
+                  [attr.cy]="60 - 10 - ((t.pct / 100) * 40)"
+                  r="2.5"
+                  [attr.fill]="getScoreColor(t.pct)"/>
+        </svg>
+        <div class="trend-labels">
+          <span>Oldest</span>
+          <span>Most Recent</span>
+        </div>
+      </div>
+
+      <!-- ── No Data ── -->
+      <div class="card no-data-card"
+           *ngIf="data.topics && data.topics.length === 0">
+        <div class="no-data-icon">&#128218;</div>
+        <h4>No quiz data yet</h4>
+        <p>Take a quiz to start seeing your performance here.</p>
+        <button (click)="navigateTo('quiz')">Go to Quiz</button>
+      </div>
+
+      <!-- ── Topic Breakdown ── -->
+      <div class="section-title" *ngIf="data.topics && data.topics.length > 0">
+        Topic Breakdown
+      </div>
+
+      <div class="topics-list" *ngIf="data.topics && data.topics.length > 0">
+        <div class="topic-card"
+             *ngFor="let t of data.topics"
+             [class.expanded]="expandedTopic === t.topic"
+             (click)="toggleTopic(t.topic)">
+
+          <!-- Top row -->
+          <div class="topic-header">
+            <div class="topic-left">
+              <span class="topic-name">{{ t.topic }}</span>
+              <span class="topic-subject-tag" *ngIf="!selectedSubject">{{ t.subject }}</span>
+            </div>
+            <div class="topic-right">
+              <span class="score-badge" [ngClass]="getScoreClass(t.avg_score)">
+                {{ t.avg_score }}%
+              </span>
+              <span class="chevron" [class.open]="expandedTopic === t.topic">&#8250;</span>
+            </div>
+          </div>
+
+          <!-- Progress bar -->
+          <div class="topic-bar">
+            <div class="topic-bar-fill"
+                 [style.width.%]="t.avg_score"
+                 [style.background]="getScoreColor(t.avg_score)">
+            </div>
+          </div>
+
+          <!-- Quick stats under bar -->
+          <div class="topic-quick">
+            <span>{{ t.quiz_count }} quiz{{ t.quiz_count !== 1 ? 'zes' : '' }}</span>
+            <span class="understanding-badge" [ngClass]="getUnderstandingClass(t.understanding_level)">
+              {{ t.understanding }}
+            </span>
+          </div>
+
+          <!-- Expanded detail -->
+          <div class="topic-detail" *ngIf="expandedTopic === t.topic" (click)="$event.stopPropagation()">
+            <div class="detail-grid">
+
+              <div class="detail-item">
+                <span class="detail-label">Best Score</span>
+                <span class="detail-value" [ngClass]="getScoreClass(t.best_score)">{{ t.best_score }}%</span>
+              </div>
+
+              <div class="detail-item">
+                <span class="detail-label">Lowest Score</span>
+                <span class="detail-value" [ngClass]="getScoreClass(t.lowest_score)">{{ t.lowest_score }}%</span>
+              </div>
+
+              <div class="detail-item">
+                <span class="detail-label">Questions Answered</span>
+                <span class="detail-value">{{ t.total_questions_answered }}</span>
+              </div>
+
+              <div class="detail-item">
+                <span class="detail-label">Correct Answers</span>
+                <span class="detail-value">{{ t.total_correct }}</span>
+              </div>
+
+              <div class="detail-item">
+                <span class="detail-label">Last Attempted</span>
+                <span class="detail-value">{{ t.last_attempted | date:'mediumDate' }}</span>
+              </div>
+
+              <div class="detail-item">
+                <span class="detail-label">Quizzes Taken</span>
+                <span class="detail-value">{{ t.quiz_count }}</span>
+              </div>
+
+            </div>
+
+            <!-- Understanding meter -->
+            <div class="understanding-meter">
+              <span class="detail-label">Understanding Level</span>
+              <div class="dots-row">
+                <span *ngFor="let d of getUnderstandingDots(t.understanding_level)"
+                      class="dot"
+                      [class.filled]="d === 1"
+                      [ngClass]="d === 1 ? getUnderstandingClass(t.understanding_level) : ''">
+                </span>
+              </div>
+              <span class="understanding-label" [ngClass]="getUnderstandingClass(t.understanding_level)">
+                {{ t.understanding }}
+              </span>
+            </div>
+
+            <!-- Advice -->
+            <div class="advice-box">
+              <span *ngIf="t.understanding_level === 4">
+                &#127881; Great work! Keep maintaining this level by revisiting occasionally.
+              </span>
+              <span *ngIf="t.understanding_level === 3">
+                &#128077; Good understanding. A few more quizzes will push you to excellent.
+              </span>
+              <span *ngIf="t.understanding_level === 2">
+                &#128218; Keep practising — take at least 2 more quizzes to solidify this topic.
+              </span>
+              <span *ngIf="t.understanding_level === 1">
+                &#128161; This topic needs more attention. Review the notes and try again.
+              </span>
+            </div>
+
+            <button class="quiz-btn" (click)="navigateTo('quiz')">
+              Practise This Topic
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </ng-container>
+  </div>
+</div>
