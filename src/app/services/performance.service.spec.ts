@@ -12,8 +12,8 @@ export interface TopicPerformance {
   total_questions_answered: number;
   total_correct: number;
   last_attempted: string;
-  understanding: string;       // 'Excellent' | 'Good' | 'Developing' | 'Needs Work'
-  understanding_level: number; // 1–4
+  understanding: string;       
+  understanding_level: number;
 }
 
 export interface ScoreTrend {

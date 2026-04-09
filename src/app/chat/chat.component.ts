@@ -66,7 +66,6 @@ export class ChatComponent implements OnInit {
     this.userMessage = '';
     this.isLoading = true;
 
-    // Add user message to chat immediately
     this.chatHistory.push({
       question,
       answer: '...',
@@ -85,7 +84,6 @@ export class ChatComponent implements OnInit {
       user_id: 1
     }).subscribe({
       next: (response) => {
-        // Update the last message with the answer
         const lastIndex = this.chatHistory.length - 1;
         this.chatHistory[lastIndex].answer = response.answer;
         this.chatHistory[lastIndex].inSyllabus = response.in_syllabus;
@@ -100,61 +98,35 @@ export class ChatComponent implements OnInit {
       }
     });
   }
-
-  /**
-   * Format answer text with proper HTML formatting
-   */
   formatAnswer(text: string): string {
     if (!text) return '';
-    
-    // Handle different response formats
     if (text === '...' || text === 'Thinking...') {
       return text;
     }
-    
     try {
-      // Convert markdown-style formatting to HTML
       let formatted = text
-        // Headers (h1, h2, h3)
-        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-        
-        // Bold text
-        .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-        .replace(/__(.*?)__/gim, '<strong>$1</strong>')
-        
-        // Italic text
-        .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-        .replace(/_(.*?)_/gim, '<em>$1</em>')
-        
-        // Code blocks
-        .replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>')
-        .replace(/`(.*?)`/gim, '<code>$1</code>')
-        
-        // Blockquotes
-        .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
-        
-        // Horizontal rule
-        .replace(/^---$/gim, '<hr>')
-        
-        // Line breaks
-        .replace(/\n/gim, '<br>');
-      
-      // Handle lists (numbered and bullet)
-      const lines = formatted.split('<br>');
-      let inList = false;
-      let listType = '';
-      let listHtml = [];
-      
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        
-        // Check for numbered list (1. item)
-        const numberedMatch = line.match(/^(\d+)\.\s+(.*)/);
-        if (numberedMatch) {
-          if (!inList || listType !== 'ol') {
-            if (inList) listHtml.push(`</${listType}>`);
+.replace(/^### (.*$)/gim, '<h3>$1</h3>')
+.replace(/^## (.*$)/gim, '<h2>$1</h2>')
+.replace(/^# (.*$)/gim, '<h1>$1</h1>')
+.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+.replace(/__(.*?)__/gim, '<strong>$1</strong>')
+.replace(/\*(.*?)\*/gim, '<em>$1</em>')
+.replace(/_(.*?)_/gim, '<em>$1</em>')
+.replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>')
+.replace(/`(.*?)`/gim, '<code>$1</code>')
+.replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
+.replace(/^---$/gim, '<hr>') 
+  .replace(/\n/gim, '<br>');
+const lines = formatted.split('<br>');
+let inList = false;
+let listType = '';
+let listHtml = [];
+for (let i = 0; i < lines.length; i++) {
+const line = lines[i];
+const numberedMatch = line.match(/^(\d+)\.\s+(.*)/);
+if (numberedMatch) {
+if (!inList || listType !== 'ol') {
+if (inList) listHtml.push(`</${listType}>`);
             listHtml.push('<ol>');
             inList = true;
             listType = 'ol';
@@ -162,43 +134,31 @@ export class ChatComponent implements OnInit {
           listHtml.push(`<li>${numberedMatch[2]}</li>`);
           continue;
         }
-        
-        // Check for bullet list (- item or * item)
         const bulletMatch = line.match(/^[-*]\s+(.*)/);
-        if (bulletMatch) {
-          if (!inList || listType !== 'ul') {
-            if (inList) listHtml.push(`</${listType}>`);
-            listHtml.push('<ul>');
-            inList = true;
-            listType = 'ul';
-          }
-          listHtml.push(`<li>${bulletMatch[1]}</li>`);
-          continue;
+if (bulletMatch) {
+if (!inList || listType !== 'ul') {
+if (inList) listHtml.push(`</${listType}>`);
+ listHtml.push('<ul>');
+ inList = true;
+listType = 'ul';
+  }
+listHtml.push(`<li>${bulletMatch[1]}</li>`);continue;
         }
-        
-        // If we were in a list and this line isn't a list item, close the list
         if (inList) {
           listHtml.push(`</${listType}>`);
           inList = false;
         }
-        
         listHtml.push(line);
       }
-      
-      // Close any open list
-      if (inList) {
-        listHtml.push(`</${listType}>`);
+if (inList) {
+ listHtml.push(`</${listType}>`);
       }
-      
-      formatted = listHtml.join('');
-      
-      // Remove empty paragraphs
-      formatted = formatted.replace(/<br><br>/g, '<br>');
-      
-      return formatted;
+formatted = listHtml.join('');
+formatted = formatted.replace(/<br><br>/g, '<br>');
+return formatted;
     } catch (e) {
-      console.error('Error formatting answer:', e);
-      return text; // Return original text if formatting fails
+  console.error('Error formatting answer:', e);
+  return text; 
     }
   }
 }

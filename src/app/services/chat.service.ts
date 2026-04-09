@@ -1,12 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import * as environment from '../../environment';
+import { environment } from '../../environment';
 
-export interface ChatRequest {
+export interface ChatMessage {
   question: string;
   subject: string;
-  user_id?: number;
+  user_id: number;
 }
 
 export interface ChatResponse {
@@ -14,15 +14,13 @@ export interface ChatResponse {
   in_syllabus: boolean;
 }
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class ChatService {
-  private apiUrl = `${environment.environment.apiUrl}/chat.php`;
+  private apiUrl = `${environment.apiUrl}/chat.php`;
 
   constructor(private http: HttpClient) {}
 
-  sendMessage(request: ChatRequest): Observable<ChatResponse> {
-    return this.http.post<ChatResponse>(this.apiUrl, request);
+  sendMessage(payload: ChatMessage): Observable<ChatResponse> {
+    return this.http.post<ChatResponse>(this.apiUrl, payload);
   }
 }

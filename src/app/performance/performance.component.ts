@@ -54,7 +54,7 @@ export class PerformanceComponent implements OnInit {
     this.isLoading    = true;
     this.errorMessage = '';
 
-    this.performanceService.getPerformance(1, this.selectedSubject).subscribe({
+   this.performanceService.getPerformance(this.selectedSubject).subscribe({
       next: (res) => {
         this.data      = res;
         this.isLoading = false;
@@ -81,9 +81,6 @@ export class PerformanceComponent implements OnInit {
   toggleTopic(topic: string): void {
     this.expandedTopic = this.expandedTopic === topic ? null : topic;
   }
-
-  // ── Helpers ────────────────────────────────────────────────────────
-
   getScoreColor(score: number): string {
     if (score >= 80) return '#28a745';
     if (score >= 70) return '#ffc107';
@@ -106,13 +103,10 @@ export class PerformanceComponent implements OnInit {
       default: return 'understanding-needs-work';
     }
   }
-
-  // How many dots to fill for understanding (out of 4)
   getUnderstandingDots(level: number): number[] {
     return Array(4).fill(0).map((_, i) => i < level ? 1 : 0);
   }
-
-  // Trend line: map scores to SVG y-coords (80px tall area)
+  // Trend line
   getTrendPoints(trend: { pct: number }[]): string {
     if (!trend || trend.length < 2) return '';
     const w = 200, h = 60, pad = 10;
@@ -120,18 +114,16 @@ export class PerformanceComponent implements OnInit {
     const ys = trend.map(t => h - pad - ((t.pct / 100) * (h - pad * 2)));
     return xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
   }
-
   toggleMenu()  { this.isMenuOpen = !this.isMenuOpen; }
   closeMenu()   { this.isMenuOpen = false; }
-
   navigateTo(page: string): void {
     this.closeMenu();
-    switch (page) {
-      case 'home':        this.router.navigate(['/chat']); break;
-      case 'subjects':    this.router.navigate(['/subjects']); break;
-      case 'quiz':        this.router.navigate(['/quiz']); break;
-      case 'performance': this.router.navigate(['/performance']); break;
-      case 'login':       this.router.navigate(['/login']); break;
+  switch (page) {
+case 'home':        this.router.navigate(['/chat']); break;
+case 'subjects':    this.router.navigate(['/subjects']); break;
+case 'quiz':        this.router.navigate(['/quiz']); break;
+case 'performance': this.router.navigate(['/performance']); break;
+case 'login':       this.router.navigate(['/login']); break;
     }
   }
 }

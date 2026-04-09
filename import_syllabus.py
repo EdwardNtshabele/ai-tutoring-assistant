@@ -48,7 +48,7 @@ for page_num in range(len(pdf_reader.pages)):
         if not line:
             continue
         
-        # Find TOPICS (e.g., "3. Nutrition" or "1.0 CELL PROCESSES")
+        # Find TOPICS 
         topic_match = re.match(r'^(\d+\.\d+|\d+\.)\s+([A-Z][A-Z\s]+)', line)
         if topic_match:
             topic_id = topic_match.group(1).strip()
@@ -76,7 +76,7 @@ for page_num in range(len(pdf_reader.pages)):
             print(f"  General: {go_text[:80]}...")
             continue
         
-        # Find SUBTOPICS (e.g., "3.3 Plant nutrition")
+        # Find SUBTOPICS
         subtopic_match = re.match(r'^(\d+\.\d+\.\d+|\d+\.\d+)\s+([A-Z][a-zA-Z\s]+)', line)
         if subtopic_match and current_topic:
             subtopic_id = subtopic_match.group(1).strip()
@@ -90,14 +90,14 @@ for page_num in range(len(pdf_reader.pages)):
             print(f"  Subtopic: {subtopic_id} - {subtopic_name}")
             continue
         
-        # Find SPECIFIC OBJECTIVES (bullet points)
+        # Find SPECIFIC OBJECTIVES 
         if current_subtopic and re.match(r'^[•\-]\s*', line):
             objective = re.sub(r'^[•\-]\s*', '', line)
             current_subtopic['objectives'].append(objective)
             print(f"    - {objective[:60]}...")
             continue
         
-        # Also catch objectives numbered like "3.3.1.1 define photosynthesis"
+        # Also catch objectives numbered
         if current_subtopic and re.match(r'^\d+\.\d+\.\d+\.\d+\s+', line):
             objective = re.sub(r'^\d+\.\d+\.\d+\.\d+\s+', '', line)
             current_subtopic['objectives'].append(objective)

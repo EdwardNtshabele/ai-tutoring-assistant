@@ -1,4 +1,4 @@
-<!-- Hamburger Menu Button - Only show when menu is closed -->
+
 <button class="menu-btn" [class.hidden]="isMenuOpen" (click)="toggleMenu()">
   <div class="hamburger">
     <span></span>
@@ -6,7 +6,6 @@
     <span></span>
   </div>
 </button>
-
 <!-- Side Navigation Menu -->
 <div class="side-nav" [class.open]="isMenuOpen">
   <div class="side-nav-header">
@@ -20,22 +19,16 @@
     <li class="logout"><a href="#" (click)="navigateTo('login'); $event.preventDefault()">Logout</a></li>
   </ul>
 </div>
-
-<!-- Overlay -->
 <div class="overlay" [class.show]="isMenuOpen" (click)="closeMenu()"></div>
-
-<!-- Main Subjects Content -->
-<div class="main-content" [class.menu-open]="isMenuOpen">
-  <div class="subjects-container">
-    <h2 class="page-title">Subjects</h2>
-    <h4 class="page-subtitle">Select a Subject</h4>
-    
-    <div class="subjects-grid">
-      <div class="subject-card" *ngFor="let subject of subjects" (click)="selectSubject(subject)">
-        <div class="card-content">
-          <h5>{{ subject }}</h5>
-        </div>
-      </div>
-    </div>
-  </div>
+<div class="main-content" [class.menu-open]="isMenuOpen"><div class="subjects-container">
+<h2 class="page-title">Subjects</h2>
+<h4 class="page-subtitle">Select a Subject</h4> 
+<div class="subjects-grid">
+<div class="subject-card" *ngFor="let subject of subjects" (click)="selectSubject(subject)">
+<div class="card-content">
+<h5>{{ subject }}</h5>
+</div>
+</div>
+</div>
+ </div>
 </div>

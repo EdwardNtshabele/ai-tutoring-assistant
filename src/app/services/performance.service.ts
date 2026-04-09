@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environment';
+import { AuthService } from './auth.service';
 
 export interface TopicPerformance {
   topic: string;
@@ -39,10 +40,10 @@ export interface PerformanceData {
 export class PerformanceService {
   private apiUrl = `${environment.apiUrl}/performance.php`;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private authService: AuthService) {}
 
-  getPerformance(userId: number = 1, subject?: string): Observable<PerformanceData> {
-    let url = `${this.apiUrl}?user_id=${userId}`;
+  getPerformance(subject: string = ''): Observable<PerformanceData> {
+    let url = `${this.apiUrl}?user_id=${this.authService.userId}`;
     if (subject) url += `&subject=${encodeURIComponent(subject)}`;
     return this.http.get<PerformanceData>(url);
   }
