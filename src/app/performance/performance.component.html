@@ -1,8 +1,6 @@
 <button class="menu-btn" [class.hidden]="isMenuOpen" (click)="toggleMenu()">
   <div class="hamburger"><span></span><span></span><span></span></div>
 </button>
-
-<!-- Side Nav -->
 <div class="side-nav" [class.open]="isMenuOpen">
   <div class="side-nav-header"><h3>AI Tutoring Assistant</h3></div>
   <ul class="side-nav-menu">
@@ -14,17 +12,12 @@
   </ul>
 </div>
 <div class="overlay" [class.show]="isMenuOpen" (click)="closeMenu()"></div>
-
-<!-- Main -->
 <div class="main-content" [class.menu-open]="isMenuOpen">
   <div class="perf-container">
-
 <h2 class="page-title">Performance</h2>
 <p class="page-subtitle">
  {{ selectedSubject ? selectedSubject : 'All Subjects' }}
  </p>
-
-    <!-- Subject Filter Pills -->
  <div class="subject-pills" *ngIf="data.subjects && data.subjects.length > 0">
 <button class="pill"
  [class.active]="!selectedSubject"
@@ -34,21 +27,15 @@
   [class.active]="selectedSubject === s"
   (click)="switchSubject(s)">{{ s }}</button>
     </div>
-
-    <!-- Loading -->
  <div *ngIf="isLoading" class="loading-state">
  <div class="spinner"></div>
  <p>Loading your performance data...</p>
 </div>
-
-    <!-- Error -->
  <div *ngIf="errorMessage && !isLoading" class="error-card">
 {{ errorMessage }}
   <button (click)="loadPerformance()">Retry</button>
  </div>
-
     <ng-container *ngIf="!isLoading && !errorMessage">
-
       <!-- ── Stats Row ── -->
 <div class="stats-row">
 <div class="stat-card">
@@ -82,14 +69,12 @@
 
  <line x1="10" y1="10" x2="190" y2="10" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
 <line x1="10" y1="35" x2="190" y2="35" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
-<!-- Trend path -->
  <path [attr.d]="getTrendPoints(data.score_trend)"
  fill="none"
   stroke="#28a745"
  stroke-width="2"
  stroke-linecap="round"
 stroke-linejoin="round"/>
- <!-- Dots -->
 <circle *ngFor="let t of data.score_trend; let i = index"
  [attr.cx]="10 + (i / (data.score_trend.length - 1)) * 180"
   [attr.cy]="60 - 10 - ((t.pct / 100) * 40)"
@@ -101,7 +86,6 @@ stroke-linejoin="round"/>
 <span>Most Recent</span>
  </div>
 </div>
-
 <!-- ── No Data ── -->
  <div class="card no-data-card"
 *ngIf="data.topics && data.topics.length === 0">
@@ -110,12 +94,10 @@ stroke-linejoin="round"/>
 <p>Take a quiz to start seeing your performance here.</p>
 <button (click)="navigateTo('quiz')">Go to Quiz</button>
  </div>
-
  <!-- ── Topic Breakdown ── -->
 <div class="section-title" *ngIf="data.topics && data.topics.length > 0">
 Topic Breakdown
 </div>
-
 <div class="topics-list" *ngIf="data.topics && data.topics.length > 0">
 <div class="topic-card"
              *ngFor="let t of data.topics"
