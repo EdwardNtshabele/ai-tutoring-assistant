@@ -2,7 +2,7 @@ import PyPDF2
 import re
 import mysql.connector
 
-# Connect to MySQL
+# ── Connect ───────────────────────────────────────────────────────
 try:
     db = mysql.connector.connect(
         host="localhost",
@@ -11,130 +11,314 @@ try:
         database="ai_tutor_db"
     )
     cursor = db.cursor()
-    print("Connected to MySQL successfully!")
+    print("Connected to MySQL!\n")
 except mysql.connector.Error as err:
-    print(f"MySQL Connection Error: {err}")
+    print(f"MySQL Error: {err}")
     exit()
 
-# Read PDF
-try:
-    pdf_file = open('0573_Biology.pdf', 'rb')
-    pdf_reader = PyPDF2.PdfReader(pdf_file)
-    print(f"PDF loaded successfully! Pages: {len(pdf_reader.pages)}")
-except FileNotFoundError:
-    print("PDF file not found!")
-    exit()
+SUBJECTS = [
+    {"subject": "Biology",   "pdf": "0573_Biology.pdf"},
+    {"subject": "Chemistry", "pdf": "0570_Chemistry.pdf"},
+    # {"subject": "Physics",  "pdf": "0625_Physics.pdf"},
+]
 
-# Clear existing data
-cursor.execute("DELETE FROM syllabus WHERE subject = 'Biology'")
-print("Cleared existing Biology syllabus")
+# ── Helpers ───────────────────────────────────────────────────────
 
-# Store all syllabus data
-syllabus_data = []
-current_topic = None
-current_subtopic = None
+def fix_spaced_numbers(text):
+    """Fix PDF artifact spaces in numbers: '1.1.1 .1.' → '1.1.1.1.'"""
+    text = re.sub(r'(\d+\.\d+\.\d+)\s+\.(\d+)', r'\1.\2', text)
+    text = re.sub(r'(\d+\.\d+)\s+\.(\d+)', r'\1.\2', text)
+    return text
 
-for page_num in range(len(pdf_reader.pages)):
-    page = pdf_reader.pages[page_num]
-    text = page.extract_text()
-    
-    if not text:
-        continue
-    
-    lines = text.split('\n')
-    
-    for i, line in enumerate(lines):
-        line = line.strip()
-        if not line:
+def clean_whitespace(text):
+    """Collapse multiple spaces and newlines into single space."""
+    return re.sub(r'\s+', ' ', text).strip()
+
+def get_full_text(reader, start_page, end_trigger='MATHEMATICAL SKILLS'):
+    """Join all content pages into one string for regex parsing."""
+    full = ''
+    for i in range(start_page, len(reader.pages)):
+        raw = reader.pages[i].extract_text()
+        if not raw:
             continue
-        
-        # Find TOPICS 
-        topic_match = re.match(r'^(\d+\.\d+|\d+\.)\s+([A-Z][A-Z\s]+)', line)
-        if topic_match:
-            topic_id = topic_match.group(1).strip()
-            topic_name = topic_match.group(2).strip()
+        if end_trigger in raw:
+            break
+        full += '\n' + raw
+    return fix_spaced_numbers(full)
+
+def find_content_start(reader):
+    """Find the page where actual syllabus content begins."""
+    for i in range(len(reader.pages)):
+        text = reader.pages[i].extract_text() or ''
+        # Content starts when we see topic patterns
+        if re.search(r'\d+\.\s+MATTER|\d+\.\s+CELL|EXPERIMENTAL.*SKILLS', text):
+            return i
+    return 8  # fallback
+
+def parse_chemistry_style(full_text):
+    """
+    Parse PDFs where the table spans 3 columns:
+    Topic | General Objective | Specific Objectives
+    Subtopic names wrap across multiple lines.
+    Uses full-text regex to reconstruct names correctly.
+    """
+    syllabus_data = []
+
+    # ── Find main topics ──────────────────────────────────────────
+    # e.g. "1.  MATTER" "2 CHEMICAL REACTIONS"
+    main_topic_pattern = re.finditer(
+        r'\b(\d+)\.\s+([A-Z][A-Z\s\-\/]{3,}?)(?=\n|\s{2,}|\d+\.)',
+        full_text
+    )
+
+    # Collect topic positions
+    topics_raw = []
+    for m in main_topic_pattern:
+        name = clean_whitespace(m.group(2))
+        # Skip non-content sections
+        if name in ['CONTENT', 'OTHER INFORMATION', 'INTRODUCTION',
+                    'SCHEME OF ASSESSMENT', 'APPENDICES', 'GRADING AND REPORTING',
+                    'ASSESSMENT CRITERIA FOR PRACTICALS SKILLS']:
+            continue
+        topics_raw.append((m.start(), name))
+
+    # ── Find subtopics ────────────────────────────────────────────
+    # Pattern: X.X. or X.X.X. followed by a name
+    # Name may span multiple lines before the general objective number appears
+    subtopic_iter = re.finditer(
+        r'(\d+\.\d+\.?\d*\.?)\s+((?:[A-Za-z][a-zA-Z\s\-\/\(\)]+?)\s+)'
+        r'(?=\d+\.\d+\.?\d*\.?\s+(?:understand|acquire|be aware|investigate|'
+        r'apply|know|appreciate|perform|use|recognise))',
+        full_text
+    )
+
+    subtopics_raw = []
+    for m in subtopic_iter:
+        num  = m.group(1).strip()
+        name = clean_whitespace(m.group(2))
+        # Skip if name looks like an objective text
+        if len(name.split()) > 8:
+            name = ' '.join(name.split()[:6])
+        subtopics_raw.append((m.start(), num, name))
+
+    # ── Find specific objectives ──────────────────────────────────
+    # Pattern: 4-level number + text, OR dash bullet + text
+    objectives_raw = []
+    for m in re.finditer(
+        r'(\d+\.\d+\.\d+\.\d+)\.?\s+(.+?)(?=\d+\.\d+\.\d+\.\d+|$)',
+        full_text, re.DOTALL
+    ):
+        obj_text = clean_whitespace(m.group(2))
+        # Stop at next subtopic number
+        obj_text = re.split(r'\d+\.\d+\.?\d*\.?\s+[A-Z]', obj_text)[0]
+        obj_text = obj_text.strip()
+        if obj_text and len(obj_text) > 5:
+            objectives_raw.append((m.start(), m.group(1), obj_text))
+
+    # Also catch dash-bullet objectives
+    for m in re.finditer(r'-\s+([a-z].{10,}?)(?=\n-\s+|\n\d+\.|\Z)', full_text):
+        obj_text = clean_whitespace(m.group(1))
+        if obj_text and len(obj_text) > 5:
+            objectives_raw.append((m.start(), 'dash', obj_text))
+
+    objectives_raw.sort(key=lambda x: x[0])
+
+    # ── Associate objectives with subtopics ───────────────────────
+    # Build a sorted list of all anchors
+    all_anchors = []
+    for pos, name in topics_raw:
+        all_anchors.append(('topic', pos, name))
+    for pos, num, name in subtopics_raw:
+        all_anchors.append(('subtopic', pos, num, name))
+    all_anchors.sort(key=lambda x: x[1])
+
+    current_topic    = None
+    current_subtopic = None
+
+    for anchor in all_anchors:
+        if anchor[0] == 'topic':
+            topic_name = anchor[2]
             current_topic = {
-                'id': topic_id,
-                'name': topic_name,
-                'general_objective': '',
+                'name':      topic_name,
                 'subtopics': []
             }
             syllabus_data.append(current_topic)
-            print(f"Topic: {topic_id} - {topic_name}")
-            continue
-        
-        # Find GENERAL OBJECTIVES
-        if current_topic and ('general objective' in line.lower() or 'general objectives' in line.lower()):
-            # Look ahead to get the full general objective
-            go_text = line
-            j = i + 1
-            while j < len(lines) and not re.match(r'^\d+\.', lines[j]) and 'specific objective' not in lines[j].lower():
-                if lines[j].strip():
-                    go_text += ' ' + lines[j].strip()
-                j += 1
-            current_topic['general_objective'] = go_text
-            print(f"  General: {go_text[:80]}...")
-            continue
-        
-        # Find SUBTOPICS
-        subtopic_match = re.match(r'^(\d+\.\d+\.\d+|\d+\.\d+)\s+([A-Z][a-zA-Z\s]+)', line)
-        if subtopic_match and current_topic:
-            subtopic_id = subtopic_match.group(1).strip()
-            subtopic_name = subtopic_match.group(2).strip()
+            current_subtopic = None
+            print(f"  TOPIC: {topic_name}")
+        elif anchor[0] == 'subtopic' and current_topic:
+            num, name = anchor[2], anchor[3]
             current_subtopic = {
-                'id': subtopic_id,
-                'name': subtopic_name,
+                'id':         num,
+                'name':       name,
                 'objectives': []
             }
             current_topic['subtopics'].append(current_subtopic)
-            print(f"  Subtopic: {subtopic_id} - {subtopic_name}")
-            continue
-        
-        # Find SPECIFIC OBJECTIVES 
-        if current_subtopic and re.match(r'^[•\-]\s*', line):
-            objective = re.sub(r'^[•\-]\s*', '', line)
-            current_subtopic['objectives'].append(objective)
-            print(f"    - {objective[:60]}...")
-            continue
-        
-        # Also catch objectives numbered
-        if current_subtopic and re.match(r'^\d+\.\d+\.\d+\.\d+\s+', line):
-            objective = re.sub(r'^\d+\.\d+\.\d+\.\d+\s+', '', line)
-            current_subtopic['objectives'].append(objective)
-            print(f"    - {objective[:60]}...")
+            print(f"    Subtopic: {num} — {name}")
+
+    # Now assign objectives by position
+    anchors_sorted = [(a[1], a) for a in all_anchors]
+
+    for obj_pos, obj_num, obj_text in objectives_raw:
+        # Find which subtopic this objective belongs to
+        # (last subtopic anchor before this position)
+        last_subtopic = None
+        last_topic    = None
+        for anchor_pos, anchor in anchors_sorted:
+            if anchor_pos > obj_pos:
+                break
+            if anchor[0] == 'subtopic':
+                last_subtopic = anchor
+            elif anchor[0] == 'topic':
+                last_topic = anchor
+
+        if last_subtopic:
+            # Find the actual subtopic object
+            st_num  = last_subtopic[2]
+            st_name = last_subtopic[3]
+            for topic in syllabus_data:
+                for st in topic['subtopics']:
+                    if st['id'] == st_num and st['name'] == st_name:
+                        st['objectives'].append(obj_text)
+                        break
+
+    return syllabus_data
+
+
+def parse_biology_style(full_text):
+    """
+    Parse Biology-style PDFs where objectives use bullet points
+    and subtopics are cleaner single lines.
+    """
+    syllabus_data    = []
+    current_topic    = None
+    current_subtopic = None
+
+    for line in full_text.split('\n'):
+        line = line.strip()
+        if not line:
             continue
 
-# Insert into database
-print("\nInserting data into database...")
-insert_count = 0
+        # Skip noise
+        if re.search(r'Assessment Syllabus.*Page \d+', line):
+            continue
 
-for topic in syllabus_data:
-    # Insert topic with general objective
-    sql = """INSERT INTO syllabus 
-             (subject, topic_name, general_objective) 
-             VALUES (%s, %s, %s)"""
-    cursor.execute(sql, ('Biology', topic['name'], topic['general_objective']))
-    topic_db_id = cursor.lastrowid
-    insert_count += 1
-    
-    # Insert subtopics with specific objectives
-    for subtopic in topic['subtopics']:
-        objectives_text = '\n'.join(subtopic['objectives'])
-        sql = """INSERT INTO syllabus 
-                 (subject, topic_name, subtopic_name, objectives, parent_topic_id) 
-                 VALUES (%s, %s, %s, %s, %s)"""
-        cursor.execute(sql, (
-            'Biology', 
-            topic['name'], 
-            subtopic['name'], 
-            objectives_text,
-            topic_db_id
-        ))
+        # Main topic
+        if re.match(r'^\d+\.?\s+[A-Z][A-Z\s]{3,}$', line):
+            name = re.sub(r'^\d+\.?\s+', '', line).strip()
+            if name in ['CONTENT', 'OTHER INFORMATION', 'INTRODUCTION']:
+                continue
+            current_topic = {'name': name, 'subtopics': []}
+            syllabus_data.append(current_topic)
+            current_subtopic = None
+            print(f"  TOPIC: {name}")
+            continue
+
+        # Subtopic
+        m = re.match(r'^(\d+\.\d+\.?\d*\.?)\s+([A-Z][a-zA-Z\s\-\/\(\)]+)', line)
+        if m and current_topic:
+            num, name = m.group(1).strip(), m.group(2).strip()
+            current_subtopic = {'id': num, 'name': name, 'objectives': []}
+            current_topic['subtopics'].append(current_subtopic)
+            print(f"    Subtopic: {num} — {name}")
+            continue
+
+        # Objective (bullet or numbered)
+        if current_subtopic:
+            obj = None
+            if re.match(r'^[•\-]\s+', line):
+                obj = re.sub(r'^[•\-]\s+', '', line).strip()
+            elif re.match(r'^\d+\.\d+\.\d+\.\d+', line):
+                obj = re.sub(r'^\d+\.\d+\.\d+\.\d+\.?\s+', '', line).strip()
+            if obj and len(obj) > 5:
+                current_subtopic['objectives'].append(obj)
+
+    return syllabus_data
+
+
+# ── Main ──────────────────────────────────────────────────────────
+total_imported = 0
+
+for entry in SUBJECTS:
+    subject  = entry["subject"]
+    pdf_path = entry["pdf"]
+
+    print(f"\n{'='*60}")
+    print(f"Subject: {subject}  |  File: {pdf_path}")
+    print(f"{'='*60}")
+
+    try:
+        pdf_file   = open(pdf_path, 'rb')
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        print(f"Loaded — {len(pdf_reader.pages)} pages")
+    except FileNotFoundError:
+        print(f"ERROR: '{pdf_path}' not found — skipping.\n")
+        continue
+
+    # Clear old rows
+    cursor.execute("DELETE FROM syllabus WHERE subject = %s", (subject,))
+    print(f"Cleared old {subject} rows.")
+
+    # Find where content starts
+    start_page = find_content_start(pdf_reader)
+    print(f"Content starts at page {start_page + 1}")
+
+    # Get full text
+    full_text = get_full_text(pdf_reader, start_page)
+
+    # Use Chemistry-specific parser for Chemistry, Biology parser for others
+    if subject == "Chemistry":
+        print("Using Chemistry parser (multi-line table format)...")
+        syllabus_data = parse_chemistry_style(full_text)
+    else:
+        print("Using Biology parser (bullet-point format)...")
+        syllabus_data = parse_biology_style(full_text)
+
+    # ── Insert into DB ────────────────────────────────────────────
+    print(f"\nInserting into DB...")
+    insert_count = 0
+
+    for topic in syllabus_data:
+        if not topic.get('name'):
+            continue
+
+        cursor.execute("""
+            INSERT INTO syllabus (subject, topic_name, general_objective)
+            VALUES (%s, %s, %s)
+        """, (subject, topic['name'], ''))
+        topic_db_id  = cursor.lastrowid
         insert_count += 1
 
-db.commit()
+        for st in topic.get('subtopics', []):
+            if not st.get('name') or len(st['name']) < 2:
+                continue
+            obj_text = '\n'.join(st.get('objectives', []))
+            cursor.execute("""
+                INSERT INTO syllabus
+                    (subject, topic_name, subtopic_name, objectives, parent_topic_id)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (subject, topic['name'], st['name'], obj_text, topic_db_id))
+            insert_count += 1
+
+    db.commit()
+    pdf_file.close()
+    total_imported += insert_count
+
+    topics_count    = len(syllabus_data)
+    subtopics_count = sum(len(t.get('subtopics', [])) for t in syllabus_data)
+    objectives_count = sum(
+        len(st.get('objectives', []))
+        for t in syllabus_data
+        for st in t.get('subtopics', [])
+    )
+
+    print(f"\n✅ {subject} complete!")
+    print(f"   Main topics : {topics_count}")
+    print(f"   Subtopics   : {subtopics_count}")
+    print(f"   Objectives  : {objectives_count}")
+    print(f"   DB rows     : {insert_count}")
+
 cursor.close()
 db.close()
-
-print(f"\nDone! Imported {insert_count} syllabus items.")
-print(f"Total topics found: {len(syllabus_data)}")
+print(f"\n{'='*60}")
+print(f"ALL DONE — Total rows inserted: {total_imported}")
+print(f"{'='*60}")
